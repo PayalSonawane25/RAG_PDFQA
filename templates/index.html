@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PDF Q&A System</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <div class="container">
+    <h1 class="title">📄 PDF Q&A System</h1>
+
+    <!-- Upload Section -->
+    <div class="upload-section">
+      <form id="uploadForm" class="upload-form">
+        <input type="file" id="pdfFile" name="file" class="file-input" />
+        <button type="submit" class="upload-btn">📤 Upload</button>
+      </form>
+      <div class="progress-container">
+        <progress id="uploadProgress" value="0" max="100" class="progress-bar"></progress>
+        <p class="loading" id="uploadStatus">Uploading...</p>
+      </div>
+    </div>
+
+    <!-- Uploaded Files -->
+    <h2 class="section-title">📂 Uploaded Files</h2>
+    <ul id="pdfList" class="pdf-list">
+      {% for file in pdf_files %}
+        <li class="pdf-item">
+          <span class="pdf-name">{{ file }}</span>
+          <button class="delete-btn" onclick="deletePDF('{{ file }}')">🗑 Delete</button>
+        </li>
+      {% endfor %}
+    </ul>
+
+    <!-- Ask a Question -->
+    <div class="question-section">
+      <h2 class="section-title">💬 Ask a Question</h2>
+      <div class="question-box">
+        <input type="text" id="questionInput" class="question-input" placeholder="Type your question..." />
+        <button onclick="askQuestion()" class="ask-btn">❓ Ask</button>
+      </div>
+      <p class="loading-text" id="loadingText" style="display: none;">🔄 Fetching answer...</p>
+    </div>
+
+    <!-- Answer Section -->
+    <div class="answer-section" id="answerBox" style="display: none;">
+      <p class="question-asked" id="questionText"></p>
+      <p class="summary" id="summaryText"></p>
+      <p class="detailed" id="detailedAnswer"></p>
+    </div>
+  </div>
+
+  <script>
+    // Upload PDF/Excel
+    document.getElementById("uploadForm").addEventListener("submit", function (event) {
+      event.preventDefault();
+
+      const fileInput = document.getElementById("pdfFile");
+      if (fileInput.files.length === 0) {
+        alert("Please select a file to upload.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+
+      const progressContainer = document.querySelector(".progress-container");
+      const progressBar = document.getElementById("uploadProgress");
+      const statusText = document.getElementById("uploadStatus");
+
+      progressContainer.style.display = "block";
+      progressBar.value = 0;
+      statusText.innerText = "Uploading... 0%";
+
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/upload", true);
+
+      xhr.upload.onprogress = function (event) {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          progressBar.value = percent;
+          statusText.innerText = `Uploading... ${percent}%`;
+        }
+      };
+
+      xhr.onload = function () {
+        if (xhr.status === 200) {
+          alert("File uploaded and processing started.");
+          progressBar.value = 100;
+          statusText.innerText = "Upload Complete!";
+          setTimeout(() => location.reload(), 1000);
+        } else {
+          alert("Upload failed.");
+        }
+      };
+
+      xhr.onerror = function () {
+        alert("Error uploading file.");
+        progressContainer.style.display = "none";
+      };
+
+      xhr.send(formData);
+    });
+
+    // Delete file
+    function deletePDF(filename) {
+      fetch("/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          alert(data.message);
+          location.reload();
+        })
+        .catch((err) => {
+          console.error("Delete failed:", err);
+        });
+    }
+
+    // Ask a question
+    function askQuestion() {
+      const question = document.getElementById("questionInput").value.trim();
+      if (!question) return alert("Please enter a question.");
+
+      document.getElementById("loadingText").style.display = "block";
+      document.getElementById("answerBox").style.display = "none";
+
+      fetch("/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          document.getElementById("loadingText").style.display = "none";
+          document.getElementById("questionInput").value = "";
+
+          document.getElementById("questionText").innerText = `❓ Question: ${question}`;
+          document.getElementById("summaryText").innerText = `📝 Summary: ${data.summary || "Not available"}`;
+          document.getElementById("detailedAnswer").innerText = `📘 Detailed Answer:\n${data.detailed_answer || "Not available"}`;
+          document.getElementById("answerBox").style.display = "block";
+        })
+        .catch((err) => {
+          console.error("Answer error:", err);
+          document.getElementById("loadingText").style.display = "none";
+          document.getElementById("questionText").innerText = "";
+          document.getElementById("summaryText").innerText = "";
+          document.getElementById("detailedAnswer").innerText = "⚠️ Failed to get answer.";
+          document.getElementById("answerBox").style.display = "block";
+        });
+    }
+  </script>
+</body>
+</html>

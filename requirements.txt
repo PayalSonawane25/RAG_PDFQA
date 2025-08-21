@@ -1,0 +1,14 @@
+Flask
+Flask-Cors
+Flask-Limiter
+PyPDF2
+python-dotenv
+boto3
+chromadb
+langchain
+redis
+pandas
+openpyxl
+sentence-transformers
+Pillow
+
